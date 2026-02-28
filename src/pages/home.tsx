@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, useTexture, Stars, useProgress } from "@react-three/drei";
+import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, RotateCcw, Heart, Sparkles } from "lucide-react";
-import { PremiumCake, Table } from "@/components/PremiumCake"; // Adjust path if needed
+import { PremiumCake, Table } from "@/components/PremiumCake";
+import birthdaySong from "@/assets/birthday.mp3";
 
 // Images
 import mem1 from "@/assets/images/memory-1.jpg";
@@ -17,8 +18,37 @@ import mem6 from "@/assets/images/memory-6.jpg";
 
 const memoryImages = [mem1, mem2, mem3, mem4, mem5, mem6];
 
-// Memory images are NOT preloaded — they load lazily when photos become visible
-// Only the cake image is preloaded in PremiumCake.tsx
+// Globally enable THREE.js texture cache so every texture is re-used without reloading
+THREE.Cache.enabled = true;
+
+// ── Module-level texture preload ─────────────────────────────────────────────
+// Kick off ALL image decodes immediately at JS evaluation time —
+// long before any component mounts, so textures are ready the moment the user enters.
+const _texCache = new Map<string, THREE.Texture>();
+const _texLoader = new THREE.TextureLoader();
+memoryImages.forEach((url) => {
+  _texLoader.load(url as string, (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    _texCache.set(url as string, tex);
+  });
+});
+
+// Non-blocking texture loader — checks module-level cache first (instant if preloaded)
+function useAsyncTexture(url: string): THREE.Texture | null {
+  // Lazy initializer: if already preloaded, returns texture on the very first render
+  const [texture, setTexture] = useState<THREE.Texture | null>(() => _texCache.get(url) ?? null);
+  useEffect(() => {
+    const cached = _texCache.get(url);
+    if (cached) { setTexture(cached); return; }
+    // Not cached yet — load and cache it
+    _texLoader.load(url, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      _texCache.set(url, tex);
+      setTexture(tex);
+    });
+  }, [url]);
+  return texture;
+}
 
 // ── Typewriter hook ───────────────────────────────────────────────────────────
 function useTypewriter(text: string, delay = 38, startDelay = 300) {
@@ -81,7 +111,7 @@ function TablePhoto({
 }: {
   url: string; x: number; z: number; rotY: number; active: boolean;
 }) {
-  const texture = useTexture(url);
+  const texture = useAsyncTexture(url);
   const opacity = active ? 1 : 0;
   const W = 2.0, H = 1.5;
   const BORDER = 0.07;
@@ -131,7 +161,8 @@ const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = [
 ];
 
 // ── BG carousel: single ring of images, optimized ──
-const bgImagesFull = memoryImages;
+// Double the ring to 12 cards for higher visual density
+const bgImagesFull = [...memoryImages, ...memoryImages];
 
 const BG_CARD_DATA = Array.from({ length: bgImagesFull.length }, (_, i) => ({
   yBase: 0.6 + ((i * 7) % 11) * 0.22,
@@ -186,7 +217,7 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   phase: number;
   rotVariance: number;
 }) {
-  const texture = useTexture(url);
+  const texture = useAsyncTexture(url);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -247,8 +278,13 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
 }
 
 function PhotoGallery({ active = false }) {
+  const groupRef = useRef<THREE.Group>(null);
+  // Rotate in sync with the Table (+0.004 / frame) so photos sit on the spinning table
+  useFrame(() => {
+    if (groupRef.current) groupRef.current.rotation.y += 0.004;
+  });
   return (
-    <group>
+    <group ref={groupRef}>
       {memoryImages.map((src, i) => {
         const p   = TABLE_PLACEMENTS[i % TABLE_PLACEMENTS.length];
         const rad = (p.aDeg * Math.PI) / 180;
@@ -315,8 +351,6 @@ export default function Home() {
   const [showParticles, setShowParticles] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const { active: sceneLoading, progress: sceneProgress } = useProgress();
-  const sceneReady = !sceneLoading && sceneProgress >= 100;
 
   // Check screen size for hybrid responsive approach
   useEffect(() => {
@@ -356,31 +390,15 @@ export default function Home() {
     setStep('landing');
   }, []);
 
-  // All message lines — shown one after another in a single card
+  // All message lines — merged into full sentences so they display compactly in 2 columns
   const allLines = [
     "Hey Sneha! 🌸",
-    "",
-    "Being your classmate has been",
-    "one of the best parts of",
-    "this journey. 💛",
-    "",
-    "Your smile, your energy &",
-    "your kindness light up every",
-    "room you walk into.",
-    "",
-    "You truly deserve all",
-    "the happiness in the world! ✨",
-    "",
-    "On this special day, I wish",
-    "you a year full of joy,",
-    "success & everything you",
-    "dream of. 🌟",
-    "",
-    "May every door open for you",
-    "& every goal find its way.",
-    "",
+    "Being your classmate has been one of the best parts of this journey. 💛",
+    "Your smile, your energy & your kindness light up every room you walk into.",
+    "You truly deserve all the happiness in the world! ✨",
+    "On this special day, I wish you a year full of joy, success & everything you dream of. 🌟",
+    "May every door open for you & every goal find its way.",
     "Keep shining, always.",
-    "",
     "Happy Birthday, Sneha! 🎂🎉",
   ];
 
@@ -412,7 +430,7 @@ export default function Home() {
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      <audio ref={audioRef} loop src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" />
+      <audio ref={audioRef} loop preload="auto" src={birthdaySong} />
 
       {showParticles && <FloatingParticles />}
       <StepDots step={step} />
@@ -441,23 +459,17 @@ export default function Home() {
           gl={{ antialias: false, powerPreference: 'high-performance' }}
         >
           <Stars radius={60} depth={40} count={800} factor={3} saturation={0.5} fade speed={0.6} />
-          <ambientLight intensity={0.3} />
+          <ambientLight intensity={0.4} />
+          <hemisphereLight color="#ffeedd" groundColor="#1a0010" intensity={0.5} />
           <spotLight position={[6, 10, 8]} angle={0.2} penumbra={1} intensity={2.5} color="#ff8fa0" castShadow />
           <spotLight position={[-8, 6, -4]} angle={0.3} penumbra={1} intensity={1.2} color="#7090ff" />
           <pointLight position={[0, -3, 5]} color="#D4AF37" intensity={1.5} distance={12} />
-          <Environment preset="night" resolution={64} />
-          {/* Core scene: cake + table load first (small, fast) */}
-          <Suspense fallback={null}>
-            <Table />
-            <PremiumCake candleLit={candleLit} />
-          </Suspense>
-          {/* Photos load lazily — only after user enters the experience */}
-          {step !== 'landing' && (
-            <Suspense fallback={null}>
-              <PhotoGallery active />
-              <BgCarousel active />
-            </Suspense>
-          )}
+          {/* Cake + table render instantly — no Suspense blocking */}
+          <Table />
+          <PremiumCake candleLit={candleLit} />
+          {/* Always mounted so textures preload in background; active prop controls visibility */}
+          <PhotoGallery active={step !== 'landing'} />
+          <BgCarousel active={step !== 'landing'} />
           <OrbitControls
             enableZoom={false}
             enableDamping={true}
@@ -491,28 +503,12 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-3 mt-4">
                   <motion.button
                     onClick={handleEnter}
-                    disabled={!sceneReady}
-                    whileHover={sceneReady ? { scale: 1.05, boxShadow: "0 0 60px rgba(219,61,104,0.7)" } : {}}
-                    whileTap={sceneReady ? { scale: 0.97 } : {}}
-                    className="px-10 py-4 md:px-14 md:py-5 bg-primary text-white rounded-full font-medium tracking-widest shadow-[0_0_30px_rgba(219,61,104,0.4)] transition-all text-sm md:text-base disabled:opacity-50 disabled:cursor-wait"
+                    whileHover={{ scale: 1.05, boxShadow: "0 0 60px rgba(219,61,104,0.7)" }}
+                    whileTap={{ scale: 0.97 }}
+                    className="px-10 py-4 md:px-14 md:py-5 bg-primary text-white rounded-full font-medium tracking-widest shadow-[0_0_30px_rgba(219,61,104,0.4)] transition-all text-sm md:text-base"
                   >
-                    {sceneReady ? "✦ OPEN YOUR GIFT ✦" : "⏳ Preparing..."}
+                    ✦ OPEN YOUR GIFT ✦
                   </motion.button>
-                  {/* Loading progress bar */}
-                  {!sceneReady && (
-                    <div className="w-44 h-[3px] rounded-full overflow-hidden bg-white/10">
-                      <motion.div
-                        className="h-full rounded-full bg-primary"
-                        animate={{ width: `${sceneProgress}%` }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                      />
-                    </div>
-                  )}
-                  {!sceneReady && (
-                    <span className="text-[10px] tracking-widest text-white/30 uppercase">
-                      {Math.round(sceneProgress)}% loaded
-                    </span>
-                  )}
                 </div>
               </motion.div>
             </motion.div>
@@ -541,21 +537,24 @@ export default function Home() {
             <motion.div
               key="message"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center px-4 py-16"
+              className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center px-4 md:px-8 py-16"
             >
               <motion.div
                 initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.7, ease: "easeOut" }}
-                className="pointer-events-auto w-full max-w-[340px]"
+                className="pointer-events-auto w-full max-w-[600px]"
                 style={{
-                  background: "rgba(12,0,20,0.90)", backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(219,61,104,0.35)", borderRadius: "1.4rem",
-                  boxShadow: "0 0 50px rgba(219,61,104,0.18), 0 20px 60px rgba(0,0,0,0.65)",
-                  padding: "1.6rem 1.8rem",
+                  background: "hsla(0, 0%, 100%, 0.10)",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: "1.6rem",
+                  boxShadow: "none",
+                  padding: "1.6rem 2rem",
                 }}
               >
-                <div className="flex items-center gap-1.5 mb-4">
-                  <Heart size={13} className="text-primary fill-primary" />
-                  <span className="text-[9px] tracking-[0.25em] uppercase text-primary/60">A message for you</span>
+                <div className="flex items-center gap-2 mb-5">
+                  <Heart size={14} className="text-primary fill-primary" />
+                  <span className="text-[10px] tracking-[0.3em] uppercase font-bold text-primary/80">A message for you</span>
                 </div>
                 <MessageCard lines={allLines} onDone={() => {}} startDelay={150} direction="left" />
                 <motion.button
@@ -609,32 +608,58 @@ export default function Home() {
 // ── Typewriter message card ───────────────────────────────────────────────────
 function MessageCard({ lines, onDone, startDelay = 200, direction = 'left' }: { lines: string[]; onDone: () => void; startDelay?: number; direction?: 'left' | 'right' }) {
   const fullText = lines.join("\n");
-  const { displayed, done } = useTypewriter(fullText, 36, startDelay);
+  const { displayed, done } = useTypewriter(fullText, 28, startDelay);
 
   useEffect(() => { if (done) onDone(); }, [done, onDone]);
 
   const parts = displayed.split("\n");
-  const xInit = direction === 'left' ? -30 : 30;
+  const xInit = direction === 'left' ? -20 : 20;
+
+  // Split into two columns: first item spans full width, rest split into 2 cols
+  const header = parts[0] ?? "";
+  const rest = parts.slice(1).filter(l => l !== "");
+
+  const isGold = (line: string) =>
+    line.includes("Birthday") || line.includes("🎂") || line.includes("🎉") || line.includes("✨") || line.includes("🌟") || line.includes("shining");
+
+  const isLast = (i: number) => i === rest.length - 1;
 
   return (
-    <div className="font-mono text-[11px] md:text-sm text-primary-foreground/90 leading-relaxed min-h-[8rem]">
-      {parts.map((line, i) => {
-        if (line === "") return <div key={i} className="h-2" />;
-        return (
+    <div className="font-sans leading-relaxed">
+      {/* Header — full width, large */}
+      {header && (
+        <motion.p
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}
+          className="text-primary font-extrabold text-lg md:text-xl mb-4 tracking-wide"
+          style={{ textShadow: "0 0 20px rgba(219,61,104,0.5)" }}
+        >{header}</motion.p>
+      )}
+      {/* Two-column grid */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+        {rest.map((line, i) => isLast(i) ? null : (
           <motion.p
             key={i}
-            initial={{ opacity: 0, x: xInit }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.45, ease: "easeOut" }}
+            initial={{ opacity: 0, x: i % 2 === 0 ? xInit : -xInit }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut", delay: i * 0.04 }}
             className={
-              i === 0 ? "text-primary font-semibold mb-1"
-                : line.includes("UNLOCKED") || line.includes("Birthday") || line.includes("✨")
-                  ? "text-[#D4AF37]" : "text-white/80"
+              isGold(line)
+                ? "font-bold text-[13px] md:text-[15px] text-[#D4AF37] drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]"
+                : "font-semibold text-[13px] md:text-[15px] text-white"
             }
-          >
-            {line}
-          </motion.p>
-        );
-      })}
-      {!done && <span className="inline-block w-1.5 h-3.5 bg-primary ml-1 animate-pulse align-middle" />}
+          >{line}</motion.p>
+        ))}
+      </div>
+      {/* Last line — full width, gold highlight */}
+      {rest.length > 0 && (
+        <motion.p
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut", delay: rest.length * 0.04 }}
+          className="mt-4 font-extrabold text-base md:text-lg text-[#D4AF37] text-center tracking-wide"
+          style={{ textShadow: "0 0 16px rgba(212,175,55,0.6)" }}
+        >{rest[rest.length - 1]}</motion.p>
+      )}
+      {!done && <span className="inline-block w-1.5 h-3.5 bg-primary ml-1 animate-pulse align-middle mt-2" />}
     </div>
   );
 }

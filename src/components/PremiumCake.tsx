@@ -1,12 +1,30 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, Suspense } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useTexture, Text } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import cakeimg from "@/assets/images/image.png";
 
-// Preload safely
-if (typeof window !== "undefined") {
-  useTexture.preload(cakeimg as string);
+// Preload cake image at module level so it's ready before Canvas mounts
+THREE.Cache.enabled = true;
+let _cakeTexture: THREE.Texture | null = null;
+new THREE.TextureLoader().load(cakeimg as string, (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _cakeTexture = tex;
+});
+
+// Non-blocking texture loader — checks module-level cache first (instant if preloaded)
+function useAsyncTexture(url: string): THREE.Texture | null {
+  const [texture, setTexture] = useState<THREE.Texture | null>(() =>
+    url === (cakeimg as string) ? _cakeTexture : null
+  );
+  useEffect(() => {
+    if (url === (cakeimg as string) && _cakeTexture) { setTexture(_cakeTexture); return; }
+    new THREE.TextureLoader().load(url, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      setTexture(tex);
+    });
+  }, [url]);
+  return texture;
 }
 
 // ── Flower petal decoration ────────────────────────────────────────────────────
@@ -50,12 +68,16 @@ function Rosettes({ y, radius, count }: { y: number; radius: number; count: numb
 
 // ── Photo printed on cake top ──────────────────────────────────────────────────
 function CakePhoto() {
-  const texture = useTexture(cakeimg as string);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = useAsyncTexture(cakeimg as string);
   return (
     <mesh position={[0, 2.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <circleGeometry args={[1.1, 32]} />
-      <meshStandardMaterial map={texture} roughness={0.3} toneMapped={false} />
+      <meshStandardMaterial
+        map={texture}
+        roughness={0.3}
+        toneMapped={false}
+        color={texture ? "#ffffff" : "#FFB6C1"}
+      />
     </mesh>
   );
 }
@@ -171,10 +193,7 @@ function Table() {
 // ── Main exported Cake ────────────────────────────────────────────────────────
 export function PremiumCake({ candleLit }: { candleLit: boolean }) {
   const cakeBodyRef = useRef<THREE.Group>(null);
-
-  useFrame(() => {
-    if (cakeBodyRef.current) cakeBodyRef.current.rotation.y -= 0.004;
-  });
+  // Cake is stationary — text always faces the same direction
 
   const bottomFlowers: [number, number, number][] = Array.from({ length: 6 }).map((_, i) => {
     const a = (i / 6) * Math.PI * 2;
@@ -225,15 +244,17 @@ export function PremiumCake({ candleLit }: { candleLit: boolean }) {
 
         <PremiumCandle candleLit={candleLit} />
 
-        <Text position={[0, 0.75, 2.01]} fontSize={0.19} color="#DB3D68" anchorX="center" anchorY="middle" letterSpacing={0.05} outlineWidth={0.008} outlineColor="#5a001a">
-          Happy Birthday
-        </Text>
-        <Text position={[0, 0.34, 2.01]} fontSize={0.31} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.1} outlineWidth={0.01} outlineColor="#5a3a00">
-          Sneha 
-        </Text>
-        <Text position={[0, 1.63, 1.41]} fontSize={0.19} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.06} outlineWidth={0.008} outlineColor="#5a3a00">
-          ✦ Sneha  ✦
-        </Text>
+        <Suspense fallback={null}>
+          <Text position={[0, 0.75, 2.01]} fontSize={0.19} color="#DB3D68" anchorX="center" anchorY="middle" letterSpacing={0.05} outlineWidth={0.008} outlineColor="#5a001a">
+            Happy Birthday
+          </Text>
+          <Text position={[0, 0.34, 2.01]} fontSize={0.31} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.1} outlineWidth={0.01} outlineColor="#5a3a00">
+            Sneha 
+          </Text>
+          <Text position={[0, 1.63, 1.41]} fontSize={0.19} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.06} outlineWidth={0.008} outlineColor="#5a3a00">
+            ✦ Sneha  ✦
+          </Text>
+        </Suspense>
       </group>
     </group>
   );

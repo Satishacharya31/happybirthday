@@ -13,6 +13,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three", "@react-three/fiber", "@react-three/drei"],
+          motion: ["framer-motion"],
+        },
+      },
+    },
   },
   server: {
     port: 5000,
