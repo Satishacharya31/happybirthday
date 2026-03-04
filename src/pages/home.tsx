@@ -8,42 +8,35 @@ import { Volume2, VolumeX, RotateCcw, Heart, Sparkles } from "lucide-react";
 import { PremiumCake, Table } from "@/components/PremiumCake";
 import birthdaySong from "@/assets/birthday.mp3";
 
-// Images
-import img1 from "@/assets/images/2026-03-03_21-02-28_821.jpg";
-import img2 from "@/assets/images/2026-03-03_21-02-28_901.jpg";
-import img3 from "@/assets/images/2026-03-03_21-02-29_159.jpg";
-import img4 from "@/assets/images/2026-03-03_21-02-29_215.jpg";
-import img5 from "@/assets/images/2026-03-03_21-02-29_810.jpg";
-import img6 from "@/assets/images/2026-03-03_21-02-29_969.jpg";
-import img7 from "@/assets/images/2026-03-03_21-02-30_180.jpg";
-import img8 from "@/assets/images/2026-03-03_21-02-30_489.jpg";
-import img9 from "@/assets/images/2026-03-03_21-02-30_993.jpg";
-import img10 from "@/assets/images/2026-03-03_21-02-31_032.jpg";
-import img11 from "@/assets/images/2026-03-03_21-02-31_194.jpg";
-import img12 from "@/assets/images/2026-03-03_21-02-32_208.jpg";
-import img13 from "@/assets/images/2026-03-03_21-02-32_339.jpg";
-import img14 from "@/assets/images/2026-03-03_21-02-32_507.jpg";
-import img15 from "@/assets/images/2026-03-03_21-02-32_564.jpg";
-import img16 from "@/assets/images/2026-03-03_21-02-32_644.jpg";
-import img17 from "@/assets/images/2026-03-03_21-02-33_293.jpg";
-import img18 from "@/assets/images/2026-03-03_21-02-33_469.jpg";
-import img19 from "@/assets/images/2026-03-03_21-02-33_654.jpg";
-import img20 from "@/assets/images/2026-03-03_21-02-33_744.jpg";
-import img21 from "@/assets/images/2026-03-03_21-02-34_248.jpg";
-import img22 from "@/assets/images/2026-03-03_21-02-34_383.jpg";
+// ── Bulk asset imports via Vite glob (no per-file imports needed) ─────────────
+const _imgModules = import.meta.glob<{ default: string }>(
+  "@/assets/images/*.jpg",
+  { eager: true }
+);
+const _vidModules = import.meta.glob<{ default: string }>(
+  "@/assets/images/*.mp4",
+  { eager: true }
+);
 
-// Videos
-import vid1 from "@/assets/images/VID_20251219_093559_662L1430494.mp4";
-import vid2 from "@/assets/images/VID_20251219_100803_343L571242.mp4";
-import vid3 from "@/assets/images/VID_20251221_094842_020L535253.mp4";
-import vid4 from "@/assets/images/VID_20251221_101441_767L1120918.mp4";
-import vid5 from "@/assets/images/VID_20251229_103542_432L700710.mp4";
-import vid6 from "@/assets/images/VID_20260117_072753_788L1176436.mp4";
-import vid7 from "@/assets/images/VID_20260117_073258_536L1024745.mp4";
-import vid8 from "@/assets/images/VID_20260129_102802_619L255757.mp4";
+// Sorted arrays so order is deterministic across builds
+const memoryImages: string[] = Object.keys(_imgModules)
+  .sort()
+  .map((k) => _imgModules[k].default);
+const memoryVideos: string[] = Object.keys(_vidModules)
+  .sort()
+  .map((k) => _vidModules[k].default);
 
-const memoryImages = [img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13, img14, img15, img16, img17, img18, img19, img20, img21, img22];
-const memoryVideos = [vid1, vid2, vid3, vid4, vid5, vid6, vid7, vid8];
+// Interleave images & videos: photo, video, photo, video ...
+// Any extras from the longer array are appended at the end.
+function interleaveMediaArrays(imgs: string[], vids: string[]): string[] {
+  const out: string[] = [];
+  const max = Math.max(imgs.length, vids.length);
+  for (let i = 0; i < max; i++) {
+    if (i < imgs.length) out.push(imgs[i]);
+    if (i < vids.length) out.push(vids[i]);
+  }
+  return out;
+}
 
 // Globally enable THREE.js texture cache so every texture is re-used without reloading
 THREE.Cache.enabled = true;
@@ -178,9 +171,9 @@ function TablePhoto({
 
 // ── Photos arranged on table around the cake ─────────────────────────────────
 // r between cake base (2.6) and table rim (5.0) — use 3.5–4.3 sweet spot
-// Generate placements for all 22 images dynamically
-const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = Array.from({ length: 22 }, (_, i) => {
-  const angle = (i / 22) * 360;
+// Count is dynamic — derived from actual imported images at runtime.
+const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = Array.from({ length: memoryImages.length }, (_, i) => {
+  const angle = (i / memoryImages.length) * 360;
   const radiusVariation = [3.6, 3.7, 3.8, 3.9, 3.7, 3.8];
   const rotationVariation = [10, -15, 6, -12, 18, -8, 14, -10, 8, -14];
   return {
@@ -190,11 +183,11 @@ const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = Array.f
   };
 });
 
-// ── BG carousel: single ring of images and videos, optimized ──
-// Use all individual images and videos (no duplication)
-const bgImagesFull = [...memoryImages, ...memoryVideos];
+// ── BG carousel: interleaved ring — one photo, one video, alternating ──
+// Videos are placed last in the interleave so they are loaded lazily below.
+const bgMediaFull = interleaveMediaArrays(memoryImages, memoryVideos);
 
-const BG_CARD_DATA = Array.from({ length: bgImagesFull.length }, (_, i) => ({
+const BG_CARD_DATA = Array.from({ length: bgMediaFull.length }, (_, i) => ({
   yBase: 0.6 + ((i * 7) % 11) * 0.22,
   phase: (i * Math.PI * 2 * 0.618033988749895) % (Math.PI * 2),
   rotVariance: (((i * 3 + 1) * 0.137) % 1 - 0.5) * 0.3,
@@ -202,7 +195,7 @@ const BG_CARD_DATA = Array.from({ length: bgImagesFull.length }, (_, i) => ({
 
 function BgCarousel({ active = false }) {
   const groupRef = useRef<THREE.Group>(null);
-  const count = bgImagesFull.length; // 6
+  const count = bgMediaFull.length;
   const R = 11;
   const W = 4.5, H = 3.3;
 
@@ -213,7 +206,7 @@ function BgCarousel({ active = false }) {
 
   return (
     <group ref={groupRef}>
-      {bgImagesFull.map((src, i) => {
+      {bgMediaFull.map((src, i) => {
         const deg = (i / count) * 360;
         const baseRad = (deg * Math.PI) / 180;
         const x = Math.sin(baseRad) * R;
@@ -313,6 +306,8 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
 }
 
 // ── BgVideoCard for video files in carousel ──────────────────────────────────
+// Videos are created lazily (only after `active` turns true) to avoid loading
+// all video data on page start — keeping initial load fast and smooth.
 function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   url: string; x: number; y: number; z: number;
   rotY: number; w: number; h: number;
@@ -321,30 +316,40 @@ function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   rotVariance: number;
 }) {
   const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const meshRef = useRef<THREE.Mesh>(null);
+  const isVisibleRef = useRef(false);
 
+  // Only create the video element once the scene becomes active (lazy load)
   useEffect(() => {
+    if (!active) return; // defer until user enters the scene
+    if (videoRef.current) return; // already created
+
     const video = document.createElement('video');
     video.src = url;
     video.crossOrigin = 'anonymous';
     video.loop = true;
     video.muted = true;
     video.playsInline = true;
-    video.autoplay = true;
-    
-    video.play().catch(() => console.log('Video autoplay blocked'));
-    
+    // preload=metadata keeps network cost minimal; full data loads on first play
+    video.preload = 'metadata';
+    videoRef.current = video;
+
     const texture = new THREE.VideoTexture(video);
     texture.colorSpace = THREE.SRGBColorSpace;
+    // Reduce texture update frequency for smoother performance
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
     setVideoTexture(texture);
-    
+
     return () => {
       video.pause();
       video.src = '';
       texture.dispose();
+      videoRef.current = null;
     };
-  }, [url]);
+  }, [active, url]);
 
   useFrame(({ clock, camera }) => {
     if (!matRef.current || !meshRef.current) return;
@@ -376,10 +381,21 @@ function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
     // -1 = card is directly behind center from camera → show
     const dot = (wx / cardLen) * (cx / camLen) + (wz / cardLen) * (cz / camLen);
 
+    const isNowVisible = dot <= 0;
     if (dot > 0) {
       matRef.current.opacity = 0;
+      // Pause video when it scrolls to the hidden half — saves GPU decode work
+      if (isVisibleRef.current && videoRef.current) {
+        videoRef.current.pause();
+      }
+      isVisibleRef.current = false;
       return;
     }
+    // Resume playback when card enters the visible half
+    if (!isVisibleRef.current && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+    isVisibleRef.current = isNowVisible;
     // Smooth ramp: fully visible at dot=-1, fades out as dot approaches 0
     const fade = THREE.MathUtils.clamp((-dot) / 0.45, 0, 1);
     matRef.current.opacity = 0.88 * fade;
@@ -518,13 +534,16 @@ export default function Home() {
   // All message lines — merged into full sentences so they display compactly in 2 columns
   const allLines = [
     "Hey Saniya! 🌸",
-    "Being your classmate has been one of the best parts of this journey. 💛",
-    "Your smile, your energy & your kindness light up every room you walk into.",
-    "You truly deserve all the happiness in the world! ✨",
-    "On this special day, I wish you a year full of joy, success & everything you dream of. 🌟",
-    "May every door open for you & every goal find its way.",
-    "Keep shining, always.",
-    "Happy Birthday, Saniya! 🎂🎉",
+    "Miles apart, yet you feel like the closest person to my heart. 💛",
+    "You are the kind of friend that distance can never really separate.",
+    "Your laugh, your warmth & your spirit — I carry them with me every single day. ✨",
+    "This day deserves the most beautiful celebration, because YOU deserve it. 🌟",
+    "I wish I could be there to celebrate with you in person right now.",
+    "But even from far away, I'm sending you all my love & the biggest virtual hug. 🤗",
+    "May this year bring you closer to every dream, every joy & every person you love.",
+    "You are truly one of the most special people in my life, Saniya.",
+    "Never forget that. No matter how far, I'm always rooting for you. 💖",
+    "Happy Birthday, my dearest friend! Saniya 🎂🎉",
   ];
 
   return (
@@ -685,7 +704,7 @@ export default function Home() {
                 <motion.button
                   onClick={() => setStep('final')}
                   initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 7, duration: 0.5, ease: "backOut" }}
+                  transition={{ delay: 12, duration: 0.5, ease: "backOut" }}
                   whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
                   className="mt-6 w-full py-2.5 rounded-full bg-primary/20 border border-primary/50 text-primary text-sm font-medium tracking-widest hover:bg-primary/35 transition-all"
                   style={{ boxShadow: "0 0 24px rgba(219,61,104,0.25)" }}
