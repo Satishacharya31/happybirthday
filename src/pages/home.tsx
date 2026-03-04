@@ -38,34 +38,38 @@ function interleaveMediaArrays(imgs: string[], vids: string[]): string[] {
   return out;
 }
 
-// Globally enable THREE.js texture cache so every texture is re-used without reloading
+// THREE.Cache deduplicates requests so the same URL is never fetched twice.
 THREE.Cache.enabled = true;
-
-// ── Module-level texture preload ─────────────────────────────────────────────
-// Kick off ALL image decodes immediately at JS evaluation time —
-// long before any component mounts, so textures are ready the moment the user enters.
-const _texCache = new Map<string, THREE.Texture>();
 const _texLoader = new THREE.TextureLoader();
+
+// ── Parallel preload — fires ALL image downloads the moment the JS module
+// evaluates (i.e. on first page load, while the landing screen is visible).
+// Results land in _texCache so useAsyncTexture resolves instantly if ready.
+const _texCache = new Map<string, THREE.Texture>();
 memoryImages.forEach((url) => {
-  _texLoader.load(url as string, (tex) => {
+  _texLoader.load(url, (tex) => {
     tex.colorSpace = THREE.SRGBColorSpace;
-    _texCache.set(url as string, tex);
+    _texCache.set(url, tex);
   });
 });
 
-// Non-blocking texture loader — checks module-level cache first (instant if preloaded)
+// Non-blocking texture hook — returns from cache immediately if already loaded,
+// otherwise subscribes and re-renders the moment the download finishes.
 function useAsyncTexture(url: string): THREE.Texture | null {
-  // Lazy initializer: if already preloaded, returns texture on the very first render
-  const [texture, setTexture] = useState<THREE.Texture | null>(() => _texCache.get(url) ?? null);
+  const [texture, setTexture] = useState<THREE.Texture | null>(
+    () => _texCache.get(url) ?? null  // instant on re-render if preloaded
+  );
   useEffect(() => {
-    const cached = _texCache.get(url);
-    if (cached) { setTexture(cached); return; }
-    // Not cached yet — load and cache it
+    // Already resolved (preloaded) — nothing to do
+    if (_texCache.has(url)) { setTexture(_texCache.get(url)!); return; }
+    // Still in-flight or not started — attach a load listener
+    let cancelled = false;
     _texLoader.load(url, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       _texCache.set(url, tex);
-      setTexture(tex);
+      if (!cancelled) setTexture(tex);
     });
+    return () => { cancelled = true; };
   }, [url]);
   return texture;
 }
@@ -131,8 +135,24 @@ function TablePhoto({
 }: {
   url: string; x: number; z: number; rotY: number; active: boolean;
 }) {
+  // Only start fetching when the scene is active — zero downloads on landing screen
   const texture = useAsyncTexture(url);
-  const opacity = active ? 1 : 0;
+  // Per-photo animated opacity — fades in the moment THIS texture is ready,
+  // independent of all other photos (progressive reveal).
+  const opacityRef = useRef(0);
+  const borderMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const photoMatRef  = useRef<THREE.MeshStandardMaterial>(null);
+
+  useFrame((_, delta) => {
+    // Target 1 only if scene is active AND this photo's texture has loaded
+    const target = active && texture ? 1 : 0;
+    // Smooth lerp so each photo fades in gently (~0.4 s)
+    opacityRef.current = THREE.MathUtils.lerp(opacityRef.current, target, Math.min(delta * 4, 1));
+    const o = opacityRef.current;
+    if (borderMatRef.current) borderMatRef.current.opacity = o;
+    if (photoMatRef.current)  photoMatRef.current.opacity  = o;
+  });
+
   const W = 2.0, H = 1.5;
   const BORDER = 0.07;
   const tableY = -0.49; // just above table surface
@@ -143,10 +163,11 @@ function TablePhoto({
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[W + BORDER * 2, H + BORDER * 2]} />
         <meshStandardMaterial
+          ref={borderMatRef}
           color="#fff8f0"
           roughness={0.55}
           transparent
-          opacity={opacity}
+          opacity={0}
           depthWrite={false}
         />
       </mesh>
@@ -154,10 +175,11 @@ function TablePhoto({
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
         <planeGeometry args={[W, H]} />
         <meshStandardMaterial
+          ref={photoMatRef}
           map={texture}
           toneMapped={false}
           transparent
-          opacity={opacity}
+          opacity={0}
           roughness={0.35}
           depthWrite={false}
           polygonOffset
@@ -245,6 +267,7 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   phase: number;
   rotVariance: number;
 }) {
+  // Only fetch when carousel becomes active
   const texture = useAsyncTexture(url);
   const matRef = useRef<THREE.MeshStandardMaterial>(null);
   const meshRef = useRef<THREE.Mesh>(null);
