@@ -1,234 +1,206 @@
-import sharp from 'sharp';
+/**
+ * Dynamic OG image generator using Satori (same engine as Vercel OG).
+ * Renders JSX-style layout → SVG → PNG via sharp.
+ * Run: npm run og   (also auto-runs during: npm run build)
+ */
+import satori from 'satori';
+import sharp  from 'sharp';
 import { fileURLToPath } from 'url';
+import { readFileSync, statSync } from 'fs';
 import path from 'path';
-import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outPath   = path.resolve(__dirname, '../public/og-image.png');
 
-console.log('🎂 Generating OG image via SVG → PNG...');
+// ── Fonts from local @fontsource packages (no network needed) ───────────────
+const playfairBold = readFileSync(
+  path.resolve(__dirname, '../node_modules/@fontsource/playfair-display/files/playfair-display-latin-700-normal.woff2')
+);
+const montserrat = readFileSync(
+  path.resolve(__dirname, '../node_modules/@fontsource/montserrat/files/montserrat-latin-600-normal.woff2')
+);
 
-// 1200 × 630 birthday cake scene as a rich SVG
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="630" viewBox="0 0 1200 630">
+console.log('✨ Rendering OG image with Satori...');
+
+// ── Layout (satori JSX as plain objects) ────────────────────────────────────
+// Satori accepts the h() object tree directly — no JSX transform needed.
+function h(type, props, ...children) {
+  return { type, props: { ...props, children: children.flat().filter(Boolean) } };
+}
+
+// Cake SVG drawn inline as a data-image for the right panel
+const cakeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360" width="240" height="360">
   <defs>
-    <!-- Background radial gradients -->
-    <radialGradient id="bg1" cx="50%" cy="60%" r="70%">
-      <stop offset="0%"   stop-color="#2d001a"/>
-      <stop offset="55%"  stop-color="#0a000d"/>
-      <stop offset="100%" stop-color="#000005"/>
-    </radialGradient>
-    <radialGradient id="bgGlow" cx="50%" cy="75%" r="50%">
-      <stop offset="0%"   stop-color="#b4145033" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#000000"   stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="bgGold" cx="50%" cy="5%" r="45%">
-      <stop offset="0%"   stop-color="#D4AF37" stop-opacity="0.1"/>
-      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Cake gradients -->
-    <linearGradient id="tier1g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#fff0f5"/>
-      <stop offset="100%" stop-color="#ffe0ea"/>
-    </linearGradient>
-    <linearGradient id="tier2g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#fff0f5"/>
-    </linearGradient>
-    <linearGradient id="plateg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#333333"/>
-      <stop offset="100%" stop-color="#111111"/>
-    </linearGradient>
-    <linearGradient id="tableG" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"  stop-color="#2a1200"/>
-      <stop offset="100%" stop-color="#1a0a00"/>
-    </linearGradient>
-    <radialGradient id="flameG" cx="50%" cy="80%" r="60%">
-      <stop offset="0%"   stop-color="#FFE033"/>
-      <stop offset="60%"  stop-color="#FF6A00"/>
+    <radialGradient id="fG" cx="50%" cy="80%" r="60%">
+      <stop offset="0%" stop-color="#FFE033"/>
+      <stop offset="60%" stop-color="#FF6A00"/>
       <stop offset="100%" stop-color="#cc3300" stop-opacity="0.3"/>
     </radialGradient>
-    <radialGradient id="flameGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#FF8C00" stop-opacity="0.5"/>
+    <radialGradient id="fg2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF8C00" stop-opacity="0.6"/>
       <stop offset="100%" stop-color="#FF8C00" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="titleG" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#DB3D68"/>
-      <stop offset="50%"  stop-color="#D4AF37"/>
-      <stop offset="100%" stop-color="#FF85C2"/>
-    </linearGradient>
-    <linearGradient id="nameG" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"   stop-color="#D4AF37"/>
-      <stop offset="100%" stop-color="#FFD700"/>
-    </linearGradient>
-
-    <!-- Glow filters -->
-    <filter id="pinkGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="18" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="tableBlur">
-      <feGaussianBlur stdDeviation="2"/>
-    </filter>
   </defs>
-
-  <!-- ── Background ── -->
-  <rect width="1200" height="630" fill="url(#bg1)"/>
-  <rect width="1200" height="630" fill="url(#bgGlow)"/>
-  <rect width="1200" height="630" fill="url(#bgGold)"/>
-
-  <!-- Stars -->
-  <g fill="white" opacity="0.5">
-    ${Array.from({length:120},(_,i)=>{
-      const x=Math.round((Math.sin(i*127.1)*0.5+0.5)*1200);
-      const y=Math.round((Math.sin(i*311.7)*0.5+0.5)*630);
-      const r=(Math.sin(i*73.3)*0.5+0.5)*1.5+0.3;
-      const op=(Math.sin(i*57.7)*0.35+0.65).toFixed(2);
-      return `<circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" opacity="${op}"/>`;
-    }).join('')}
-  </g>
-
-  <!-- ── Table ── -->
-  <ellipse cx="780" cy="540" rx="210" ry="22" fill="url(#tableG)" opacity="0.9"/>
-  <rect x="570" y="525" width="420" height="15" rx="4" fill="#1a0a00"/>
-  <!-- table gold rim -->
-  <ellipse cx="780" cy="525" rx="210" ry="10" fill="none" stroke="#D4AF37" stroke-width="2.5" opacity="0.8"/>
-  <!-- pedestal -->
-  <rect x="763" y="540" width="34" height="55" rx="4" fill="#111"/>
-  <ellipse cx="780" cy="595" rx="38" ry="6" fill="#1a0a00"/>
-
-  <!-- Cake shadow on table -->
-  <ellipse cx="780" cy="528" rx="130" ry="12" fill="#000" opacity="0.45"/>
-
-  <!-- ── Cake plate ── -->
-  <ellipse cx="780" cy="525" rx="128" ry="13" fill="url(#plateg)"/>
-  <ellipse cx="780" cy="522" rx="128" ry="8" fill="#222" opacity="0.6"/>
-
-  <!-- ── Bottom tier ── -->
-  <!-- side -->
-  <rect x="678" y="400" width="204" height="120" rx="8" fill="url(#tier1g)"/>
-  <!-- top ellipse -->
-  <ellipse cx="780" cy="400" rx="102" ry="12" fill="#ffe8f0"/>
-  <!-- bottom ellipse -->
-  <ellipse cx="780" cy="520" rx="102" ry="10" fill="#ffd0e0" opacity="0.7"/>
-  <!-- rosettes bottom band -->
-  ${Array.from({length:10},(_,i)=>{
-    const a=(i/10)*Math.PI*2; const cx=780+Math.round(Math.cos(a)*88); const cy=422+Math.round(Math.sin(a)*9);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'];
-    return `<circle cx="${cx}" cy="${cy}" r="7" fill="${cols[i%5]}" opacity="0.9"/>`;
-  }).join('')}
-  <!-- rosettes top band -->
-  ${Array.from({length:10},(_,i)=>{
-    const a=(i/10)*Math.PI*2; const cx=780+Math.round(Math.cos(a)*88); const cy=505+Math.round(Math.sin(a)*9);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'];
-    return `<circle cx="${cx}" cy="${cy}" r="7" fill="${cols[i%5]}" opacity="0.9"/>`;
-  }).join('')}
+  <!-- table -->
+  <ellipse cx="120" cy="340" rx="105" ry="12" fill="#1a0a00"/>
+  <ellipse cx="120" cy="336" rx="105" ry="7" fill="none" stroke="#D4AF37" stroke-width="2"/>
+  <!-- shadow -->
+  <ellipse cx="120" cy="308" rx="88" ry="9" fill="#000" opacity="0.4"/>
+  <!-- plate -->
+  <ellipse cx="120" cy="306" rx="88" ry="9" fill="#222"/>
+  <!-- tier1 side -->
+  <rect x="34" y="205" width="172" height="100" rx="6" fill="#FFF0F5"/>
+  <ellipse cx="120" cy="205" rx="86" ry="9" fill="#ffe8f0"/>
+  <ellipse cx="120" cy="305" rx="86" ry="7" fill="#ffd0e0" opacity="0.6"/>
+  <!-- tier1 rosettes top -->
+  ${Array.from({length:9},(_,i)=>{const a=(i/9)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*74);const cy=220+Math.round(Math.sin(a)*8);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'][i%5];return `<circle cx="${cx}" cy="${cy}" r="6" fill="${c}"/>`;}).join('')}
+  <!-- tier1 rosettes bottom -->
+  ${Array.from({length:9},(_,i)=>{const a=(i/9)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*74);const cy=295+Math.round(Math.sin(a)*8);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'][i%5];return `<circle cx="${cx}" cy="${cy}" r="6" fill="${c}"/>`;}).join('')}
   <!-- gold band -->
-  <ellipse cx="780" cy="458" rx="102" ry="7" fill="none" stroke="#D4AF37" stroke-width="3.5"/>
-
-  <!-- ── Top tier ── -->
-  <rect x="710" y="300" width="140" height="100" rx="6" fill="url(#tier2g)"/>
-  <ellipse cx="780" cy="300" rx="70" ry="9" fill="#fff5f8"/>
-  <ellipse cx="780" cy="400" rx="70" ry="7" fill="#ffe8f0" opacity="0.7"/>
-  <!-- rosettes -->
-  ${Array.from({length:8},(_,i)=>{
-    const a=(i/8)*Math.PI*2; const cx=780+Math.round(Math.cos(a)*62); const cy=318+Math.round(Math.sin(a)*7);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'];
-    return `<circle cx="${cx}" cy="${cy}" r="6" fill="${cols[i%5]}" opacity="0.9"/>`;
-  }).join('')}
-  ${Array.from({length:8},(_,i)=>{
-    const a=(i/8)*Math.PI*2; const cx=780+Math.round(Math.cos(a)*62); const cy=390+Math.round(Math.sin(a)*7);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'];
-    return `<circle cx="${cx}" cy="${cy}" r="6" fill="${cols[i%5]}" opacity="0.9"/>`;
-  }).join('')}
-  <!-- gold band -->
-  <ellipse cx="780" cy="350" rx="70" ry="6" fill="none" stroke="#D4AF37" stroke-width="3"/>
-
-  <!-- ── Flowers on tiers ── -->
-  <!-- bottom tier flowers -->
-  ${Array.from({length:6},(_,i)=>{
-    const a=(i/6)*Math.PI*2;
-    const cx=780+Math.round(Math.cos(a)*95); const cy=410+Math.round(Math.sin(a)*8);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2','#FF69B4'];
-    const c=cols[i%6];
-    return `<circle cx="${cx}" cy="${cy}" r="9" fill="${c}" opacity="0.85"/>
-            <circle cx="${cx}" cy="${cy}" r="4" fill="#FFDA44"/>`;
-  }).join('')}
-  <!-- top tier flowers -->
-  ${Array.from({length:5},(_,i)=>{
-    const a=(i/5)*Math.PI*2;
-    const cx=780+Math.round(Math.cos(a)*66); const cy=308+Math.round(Math.sin(a)*6);
-    const cols=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'];
-    const c=cols[i%5];
-    return `<circle cx="${cx}" cy="${cy}" r="7" fill="${c}" opacity="0.85"/>
-            <circle cx="${cx}" cy="${cy}" r="3" fill="#FFDA44"/>`;
-  }).join('')}
-
-  <!-- ── Candle ── -->
-  <!-- candle holder base -->
-  <ellipse cx="780" cy="300" rx="12" ry="4" fill="#D4AF37"/>
+  <ellipse cx="120" cy="255" rx="86" ry="6" fill="none" stroke="#D4AF37" stroke-width="3"/>
+  <!-- tier2 side -->
+  <rect x="72" y="120" width="96" height="85" rx="5" fill="#ffffff"/>
+  <ellipse cx="120" cy="120" rx="48" ry="7" fill="#fff5f8"/>
+  <ellipse cx="120" cy="205" rx="48" ry="6" fill="#ffe8f0" opacity="0.7"/>
+  <!-- tier2 rosettes -->
+  ${Array.from({length:7},(_,i)=>{const a=(i/7)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*40);const cy=133+Math.round(Math.sin(a)*6);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'][i%5];return `<circle cx="${cx}" cy="${cy}" r="5" fill="${c}"/>`;}).join('')}
+  ${Array.from({length:7},(_,i)=>{const a=(i/7)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*40);const cy=196+Math.round(Math.sin(a)*6);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'][i%5];return `<circle cx="${cx}" cy="${cy}" r="5" fill="${c}"/>`;}).join('')}
+  <!-- tier2 gold band -->
+  <ellipse cx="120" cy="163" rx="48" ry="5" fill="none" stroke="#D4AF37" stroke-width="2.5"/>
+  <!-- flowers tier1 -->
+  ${Array.from({length:5},(_,i)=>{const a=(i/5)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*80);const cy=215+Math.round(Math.sin(a)*7);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68','#FF85C2'][i%5];return `<circle cx="${cx}" cy="${cy}" r="8" fill="${c}" opacity="0.9"/><circle cx="${cx}" cy="${cy}" r="3.5" fill="#FFDA44"/>`;}).join('')}
+  <!-- flowers tier2 -->
+  ${Array.from({length:4},(_,i)=>{const a=(i/4)*Math.PI*2;const cx=120+Math.round(Math.cos(a)*44);const cy=128+Math.round(Math.sin(a)*5);const c=['#FF69B4','#FF1493','#FFB6C1','#DB3D68'][i%4];return `<circle cx="${cx}" cy="${cy}" r="6" fill="${c}" opacity="0.9"/><circle cx="${cx}" cy="${cy}" r="2.5" fill="#FFDA44"/>`;}).join('')}
+  <!-- candle holder -->
+  <ellipse cx="120" cy="120" rx="10" ry="3.5" fill="#D4AF37"/>
   <!-- candle body -->
-  <rect x="775" y="252" width="10" height="48" rx="4" fill="#FFF5F8"/>
-  <!-- gold bands on candle -->
-  <rect x="773" y="268" width="14" height="3" rx="1" fill="#D4AF37"/>
-  <rect x="773" y="283" width="14" height="3" rx="1" fill="#D4AF37"/>
+  <rect x="115" y="82" width="10" height="38" rx="4" fill="#FFF5F8"/>
+  <rect x="113" y="93" width="14" height="3" rx="1" fill="#D4AF37"/>
+  <rect x="113" y="105" width="14" height="3" rx="1" fill="#D4AF37"/>
   <!-- wick -->
-  <line x1="780" y1="252" x2="780" y2="246" stroke="#333" stroke-width="1.5"/>
-
-  <!-- Flame glow -->
-  <ellipse cx="780" cy="236" rx="28" ry="28" fill="url(#flameGlow)" filter="url(#softGlow)"/>
-  <!-- Flame -->
-  <ellipse cx="780" cy="234" rx="9" ry="18" fill="url(#flameG)" filter="url(#goldGlow)"/>
-  <ellipse cx="780" cy="238" rx="5" ry="11" fill="#FFE033" opacity="0.9"/>
-  <!-- flame tip white -->
-  <ellipse cx="780" cy="222" rx="2.5" ry="3" fill="white" opacity="0.95"/>
-
-  <!-- ── "Happy Birthday" text on cake side ── -->
-  <text x="780" y="345" text-anchor="middle" font-family="Georgia,serif" font-size="12" font-weight="700" fill="#DB3D68" letter-spacing="1">Happy Birthday</text>
-  <text x="780" y="362" text-anchor="middle" font-family="Georgia,serif" font-size="16" font-weight="900" fill="#D4AF37" letter-spacing="2">Sneha</text>
-
-  <!-- ── Left panel text ── -->
-  <!-- decorative line -->
-  <line x1="75" y1="185" x2="75" y2="445" stroke="#DB3D68" stroke-width="1.5" opacity="0.4"/>
-
-  <!-- Tag -->
-  <text x="100" y="200" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#DB3D68" letter-spacing="4" opacity="0.9">✦ A SPECIAL SURPRISE ✦</text>
-
-  <!-- Title: Happy Birthday -->
-  <text x="98" y="295" font-family="Georgia,'Playfair Display',serif" font-size="82" font-weight="900" fill="url(#titleG)" filter="url(#pinkGlow)">Happy</text>
-  <text x="98" y="375" font-family="Georgia,'Playfair Display',serif" font-size="82" font-weight="900" fill="url(#titleG)" filter="url(#pinkGlow)">Birthday</text>
-
-  <!-- Name -->
-  <text x="100" y="440" font-family="Georgia,'Playfair Display',serif" font-size="62" font-weight="900" fill="url(#nameG)" filter="url(#goldGlow)">Sneha 🎂</text>
-
-  <!-- Subtitle -->
-  <text x="100" y="490" font-family="Arial,sans-serif" font-size="15" fill="rgba(255,255,255,0.45)" letter-spacing="3">Open your gift — something beautiful awaits</text>
-
-  <!-- sparkle dots -->
-  <circle cx="90" cy="218" r="3" fill="#D4AF37" opacity="0.7"/>
-  <circle cx="90" cy="313" r="2" fill="#FF85C2" opacity="0.6"/>
-  <circle cx="90" cy="393" r="2" fill="#DB3D68" opacity="0.6"/>
-  <circle cx="90" cy="458" r="3" fill="#D4AF37" opacity="0.7"/>
-
-  <!-- subtle vignette overlay -->
-  <radialGradient id="vig" cx="50%" cy="50%" r="70%">
-    <stop offset="60%"  stop-color="black" stop-opacity="0"/>
-    <stop offset="100%" stop-color="black" stop-opacity="0.5"/>
-  </radialGradient>
-  <rect width="1200" height="630" fill="url(#vig)"/>
+  <line x1="120" y1="82" x2="120" y2="77" stroke="#444" stroke-width="1.5"/>
+  <!-- flame glow -->
+  <ellipse cx="120" cy="66" rx="22" ry="22" fill="url(#fg2)" opacity="0.7"/>
+  <!-- flame -->
+  <ellipse cx="120" cy="64" rx="8" ry="16" fill="url(#fG)"/>
+  <ellipse cx="120" cy="67" rx="4.5" ry="10" fill="#FFE033" opacity="0.9"/>
+  <ellipse cx="120" cy="52" rx="2" ry="3" fill="white" opacity="0.9"/>
+  <!-- text on cake -->
+  <text x="120" y="158" text-anchor="middle" font-family="Georgia,serif" font-size="9.5" font-weight="700" fill="#DB3D68" letter-spacing="0.5">Happy Birthday</text>
+  <text x="120" y="172" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="900" fill="#D4AF37" letter-spacing="1.5">Saniya</text>
 </svg>`;
 
-await sharp(Buffer.from(svg))
-  .png({ compressionLevel: 8 })
-  .toFile(outPath);
+const cakeDataUri = `data:image/svg+xml;base64,${Buffer.from(cakeSvg).toString('base64')}`;
 
-const size = (fs.statSync(outPath).size / 1024).toFixed(1);
-console.log(`✅ OG image saved → public/og-image.png (${size} KB)`);
+const node = h('div', {
+  style: {
+    width: '100%', height: '100%',
+    display: 'flex', flexDirection: 'row',
+    background: 'linear-gradient(135deg, #1a0010 0%, #0a000d 55%, #000005 100%)',
+    fontFamily: 'Montserrat',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+},
+  // ── Pink radial glow bottom ──
+  h('div', { style: {
+    position: 'absolute', bottom: 0, left: '35%',
+    width: '700px', height: '400px',
+    background: 'radial-gradient(ellipse, rgba(180,20,80,0.22) 0%, transparent 70%)',
+    borderRadius: '50%',
+  }}),
+  // ── Gold glow top ──
+  h('div', { style: {
+    position: 'absolute', top: 0, left: '40%',
+    width: '600px', height: '300px',
+    background: 'radial-gradient(ellipse, rgba(212,175,55,0.12) 0%, transparent 65%)',
+    borderRadius: '50%',
+  }}),
+
+  // ── Left: text panel ──
+  h('div', { style: {
+    display: 'flex', flexDirection: 'column', justifyContent: 'center',
+    width: '620px', padding: '60px 64px',
+    position: 'relative', zIndex: 2,
+  }},
+    // accent line
+    h('div', { style: {
+      position: 'absolute', left: '44px', top: '60px', bottom: '60px',
+      width: '2px',
+      background: 'linear-gradient(to bottom, transparent, #DB3D68, transparent)',
+    }}),
+    // tag
+    h('div', { style: {
+      fontSize: 14, fontWeight: 600, letterSpacing: '4px', textTransform: 'uppercase',
+      color: '#DB3D68', marginBottom: '20px', opacity: 0.9,
+    }}, '✦  A SPECIAL SURPRISE  ✦'),
+    // "Happy Birthday"
+    h('div', { style: {
+      fontSize: 88, fontWeight: 700, lineHeight: 1.05,
+      fontFamily: 'Playfair',
+      background: 'linear-gradient(135deg, #DB3D68 0%, #D4AF37 55%, #FF85C2 100%)',
+      backgroundClip: 'text',
+      color: 'transparent',
+      marginBottom: '4px',
+    }}, 'Happy'),
+    h('div', { style: {
+      fontSize: 88, fontWeight: 700, lineHeight: 1.05,
+      fontFamily: 'Playfair',
+      background: 'linear-gradient(135deg, #DB3D68 10%, #D4AF37 60%, #FF85C2 100%)',
+      backgroundClip: 'text',
+      color: 'transparent',
+      marginBottom: '16px',
+    }}, 'Birthday'),
+    // Name
+    h('div', { style: {
+      fontSize: 64, fontWeight: 700,
+      fontFamily: 'Playfair',
+      background: 'linear-gradient(90deg, #D4AF37 0%, #FFD700 100%)',
+      backgroundClip: 'text',
+      color: 'transparent',
+      marginBottom: '28px',
+    }}, 'Saniya 🎂'),
+    // divider
+    h('div', { style: {
+      width: '80px', height: '2px', marginBottom: '24px',
+      background: 'linear-gradient(90deg, #DB3D68, #D4AF37)',
+      borderRadius: '2px',
+    }}),
+    // subtitle
+    h('div', { style: {
+      fontSize: 16, color: 'rgba(255,255,255,0.42)', letterSpacing: '2.5px',
+    }}, 'Open your gift — something beautiful awaits'),
+  ),
+
+  // ── Right: cake image panel ──
+  h('div', { style: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flex: 1, position: 'relative', zIndex: 2,
+  }},
+    // soft glow behind cake
+    h('div', { style: {
+      position: 'absolute',
+      width: '300px', height: '300px',
+      background: 'radial-gradient(circle, rgba(219,61,104,0.18) 0%, transparent 70%)',
+      borderRadius: '50%',
+    }}),
+    h('img', {
+      src: cakeDataUri,
+      width: 260, height: 390,
+      style: { objectFit: 'contain', position: 'relative', zIndex: 3 },
+    }),
+  ),
+);
+
+const svg = await satori(node, {
+  width: 1200, height: 630,
+  fonts: [
+    { name: 'Montserrat', data: montserrat,   weight: 600, style: 'normal' },
+    { name: 'Playfair',   data: playfairBold,  weight: 700, style: 'normal' },
+  ],
+});
+
+await sharp(Buffer.from(svg)).png({ compressionLevel: 8 }).toFile(outPath);
+
+const kb = (statSync(outPath).size / 1024).toFixed(1);
+console.log(`✅  OG image → public/og-image.png  (${kb} KB  •  1200×630)`);

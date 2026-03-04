@@ -9,14 +9,41 @@ import { PremiumCake, Table } from "@/components/PremiumCake";
 import birthdaySong from "@/assets/birthday.mp3";
 
 // Images
-import mem1 from "@/assets/images/memory-1.jpg";
-import mem2 from "@/assets/images/memory-2.jpg";
-import mem3 from "@/assets/images/memory-3.jpg";
-import mem4 from "@/assets/images/memory-4.jpg";
-import mem5 from "@/assets/images/memory-5.jpg";
-import mem6 from "@/assets/images/memory-6.jpg";
+import img1 from "@/assets/images/2026-03-03_21-02-28_821.jpg";
+import img2 from "@/assets/images/2026-03-03_21-02-28_901.jpg";
+import img3 from "@/assets/images/2026-03-03_21-02-29_159.jpg";
+import img4 from "@/assets/images/2026-03-03_21-02-29_215.jpg";
+import img5 from "@/assets/images/2026-03-03_21-02-29_810.jpg";
+import img6 from "@/assets/images/2026-03-03_21-02-29_969.jpg";
+import img7 from "@/assets/images/2026-03-03_21-02-30_180.jpg";
+import img8 from "@/assets/images/2026-03-03_21-02-30_489.jpg";
+import img9 from "@/assets/images/2026-03-03_21-02-30_993.jpg";
+import img10 from "@/assets/images/2026-03-03_21-02-31_032.jpg";
+import img11 from "@/assets/images/2026-03-03_21-02-31_194.jpg";
+import img12 from "@/assets/images/2026-03-03_21-02-32_208.jpg";
+import img13 from "@/assets/images/2026-03-03_21-02-32_339.jpg";
+import img14 from "@/assets/images/2026-03-03_21-02-32_507.jpg";
+import img15 from "@/assets/images/2026-03-03_21-02-32_564.jpg";
+import img16 from "@/assets/images/2026-03-03_21-02-32_644.jpg";
+import img17 from "@/assets/images/2026-03-03_21-02-33_293.jpg";
+import img18 from "@/assets/images/2026-03-03_21-02-33_469.jpg";
+import img19 from "@/assets/images/2026-03-03_21-02-33_654.jpg";
+import img20 from "@/assets/images/2026-03-03_21-02-33_744.jpg";
+import img21 from "@/assets/images/2026-03-03_21-02-34_248.jpg";
+import img22 from "@/assets/images/2026-03-03_21-02-34_383.jpg";
 
-const memoryImages = [mem1, mem2, mem3, mem4, mem5, mem6];
+// Videos
+import vid1 from "@/assets/images/VID_20251219_093559_662L1430494.mp4";
+import vid2 from "@/assets/images/VID_20251219_100803_343L571242.mp4";
+import vid3 from "@/assets/images/VID_20251221_094842_020L535253.mp4";
+import vid4 from "@/assets/images/VID_20251221_101441_767L1120918.mp4";
+import vid5 from "@/assets/images/VID_20251229_103542_432L700710.mp4";
+import vid6 from "@/assets/images/VID_20260117_072753_788L1176436.mp4";
+import vid7 from "@/assets/images/VID_20260117_073258_536L1024745.mp4";
+import vid8 from "@/assets/images/VID_20260129_102802_619L255757.mp4";
+
+const memoryImages = [img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12, img13, img14, img15, img16, img17, img18, img19, img20, img21, img22];
+const memoryVideos = [vid1, vid2, vid3, vid4, vid5, vid6, vid7, vid8];
 
 // Globally enable THREE.js texture cache so every texture is re-used without reloading
 THREE.Cache.enabled = true;
@@ -151,18 +178,21 @@ function TablePhoto({
 
 // ── Photos arranged on table around the cake ─────────────────────────────────
 // r between cake base (2.6) and table rim (5.0) — use 3.5–4.3 sweet spot
-const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = [
-  { r: 3.7,  aDeg:   0, rotYDeg:  10 },
-  { r: 3.9,  aDeg:  60, rotYDeg: -15 },
-  { r: 3.6,  aDeg: 120, rotYDeg:   6 },
-  { r: 3.8,  aDeg: 180, rotYDeg: -12 },
-  { r: 3.7,  aDeg: 240, rotYDeg:  18 },
-  { r: 3.9,  aDeg: 300, rotYDeg:  -8 },
-];
+// Generate placements for all 22 images dynamically
+const TABLE_PLACEMENTS: { r: number; aDeg: number; rotYDeg: number }[] = Array.from({ length: 22 }, (_, i) => {
+  const angle = (i / 22) * 360;
+  const radiusVariation = [3.6, 3.7, 3.8, 3.9, 3.7, 3.8];
+  const rotationVariation = [10, -15, 6, -12, 18, -8, 14, -10, 8, -14];
+  return {
+    r: radiusVariation[i % radiusVariation.length],
+    aDeg: angle,
+    rotYDeg: rotationVariation[i % rotationVariation.length]
+  };
+});
 
-// ── BG carousel: single ring of images, optimized ──
-// Double the ring to 12 cards for higher visual density
-const bgImagesFull = [...memoryImages, ...memoryImages];
+// ── BG carousel: single ring of images and videos, optimized ──
+// Use all individual images and videos (no duplication)
+const bgImagesFull = [...memoryImages, ...memoryVideos];
 
 const BG_CARD_DATA = Array.from({ length: bgImagesFull.length }, (_, i) => ({
   yBase: 0.6 + ((i * 7) % 11) * 0.22,
@@ -190,8 +220,13 @@ function BgCarousel({ active = false }) {
         const z = Math.cos(baseRad) * R;
         const rotY = baseRad + Math.PI;
         const { yBase, phase, rotVariance } = BG_CARD_DATA[i];
+        
+        // Determine if this is a video or image
+        const isVideo = (src as string).toLowerCase().endsWith('.mp4');
+        const CardComponent = isVideo ? BgVideoCard : BgCard;
+        
         return (
-          <BgCard
+          <CardComponent
             key={i}
             url={src}
             x={x} y={yBase} z={z}
@@ -266,6 +301,96 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
       <meshStandardMaterial
         ref={matRef}
         map={texture}
+        toneMapped={false}
+        transparent
+        opacity={0}
+        roughness={0.7}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+// ── BgVideoCard for video files in carousel ──────────────────────────────────
+function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
+  url: string; x: number; y: number; z: number;
+  rotY: number; w: number; h: number;
+  active: boolean;
+  phase: number;
+  rotVariance: number;
+}) {
+  const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
+  const matRef = useRef<THREE.MeshStandardMaterial>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useEffect(() => {
+    const video = document.createElement('video');
+    video.src = url;
+    video.crossOrigin = 'anonymous';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    
+    video.play().catch(() => console.log('Video autoplay blocked'));
+    
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    setVideoTexture(texture);
+    
+    return () => {
+      video.pause();
+      video.src = '';
+      texture.dispose();
+    };
+  }, [url]);
+
+  useFrame(({ clock, camera }) => {
+    if (!matRef.current || !meshRef.current) return;
+
+    // Up/down bob + random tilt animation
+    const elapsed = clock.getElapsedTime();
+    meshRef.current.position.y = y + Math.sin(elapsed * 0.65 + phase) * 0.45;
+    meshRef.current.rotation.z = rotVariance + Math.sin(elapsed * 0.42 + phase * 1.3) * 0.07;
+
+    if (!active) { matRef.current.opacity = 0; return; }
+
+    // Card's actual world position (accounts for group auto-rotation AND camera orbit)
+    meshRef.current.getWorldPosition(_worldPos);
+
+    // Camera direction in XZ plane (from scene center toward camera)
+    const cx = camera.position.x;
+    const cz = camera.position.z;
+    const camLen = Math.sqrt(cx * cx + cz * cz);
+    if (camLen < 0.001) { matRef.current.opacity = 0; return; }
+
+    // Card direction in XZ plane
+    const wx = _worldPos.x;
+    const wz = _worldPos.z;
+    const cardLen = Math.sqrt(wx * wx + wz * wz);
+    if (cardLen < 0.001) { matRef.current.opacity = 0; return; }
+
+    // Dot product of the two unit vectors:
+    // +1 = card is directly toward camera → hide
+    // -1 = card is directly behind center from camera → show
+    const dot = (wx / cardLen) * (cx / camLen) + (wz / cardLen) * (cz / camLen);
+
+    if (dot > 0) {
+      matRef.current.opacity = 0;
+      return;
+    }
+    // Smooth ramp: fully visible at dot=-1, fades out as dot approaches 0
+    const fade = THREE.MathUtils.clamp((-dot) / 0.45, 0, 1);
+    matRef.current.opacity = 0.88 * fade;
+  });
+
+  return (
+    <mesh ref={meshRef} position={[x, y, z]} rotation={[0, rotY, 0]}>
+      <planeGeometry args={[w, h]} />
+      <meshStandardMaterial
+        ref={matRef}
+        map={videoTexture}
         toneMapped={false}
         transparent
         opacity={0}
@@ -392,14 +517,14 @@ export default function Home() {
 
   // All message lines — merged into full sentences so they display compactly in 2 columns
   const allLines = [
-    "Hey Sneha! 🌸",
+    "Hey Saniya! 🌸",
     "Being your classmate has been one of the best parts of this journey. 💛",
     "Your smile, your energy & your kindness light up every room you walk into.",
     "You truly deserve all the happiness in the world! ✨",
     "On this special day, I wish you a year full of joy, success & everything you dream of. 🌟",
     "May every door open for you & every goal find its way.",
     "Keep shining, always.",
-    "Happy Birthday, Sneha! 🎂🎉",
+    "Happy Birthday, Saniya! 🎂🎉",
   ];
 
   return (
@@ -499,7 +624,7 @@ export default function Home() {
                 <h1 className="text-4xl md:text-7xl font-serif text-shimmer text-primary leading-tight">
                   A Very Special<br /><span className="text-[#D4AF37]">Birthday</span>
                 </h1>
-                <p className="text-muted-foreground tracking-[0.25em] uppercase text-xs md:text-sm">— for Sneha  —</p>
+                <p className="text-muted-foreground tracking-[0.25em] uppercase text-xs md:text-sm">— for Saniya  —</p>
                 <div className="flex flex-col items-center gap-3 mt-4">
                   <motion.button
                     onClick={handleEnter}
@@ -519,7 +644,7 @@ export default function Home() {
             <motion.div key="cake" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 pointer-events-none">
               <div className="pointer-events-auto text-center flex flex-col items-center gap-4 md:gap-5 px-4">
                 <motion.h2 animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 2.5, repeat: Infinity }} className="text-xl md:text-4xl font-serif text-white" style={{ textShadow: "0 0 30px rgba(219,61,104,0.6)" }}>
-                  Make your wish, Sneha ... 🕯️
+                  Make your wish, Saniya ... 🕯️
                 </motion.h2>
                 <motion.button
                   onClick={handleBlowCandle}
@@ -579,13 +704,13 @@ export default function Home() {
                   Happy Birthday
                 </h1>
                 <div className="text-3xl md:text-6xl font-serif mt-1 text-transparent bg-clip-text" style={{ background: "linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 20px rgba(212,175,55,0.6))" }}>
-                  Sneha  ✨
+                  Saniya  ✨
                 </div>
               </motion.div>
 
               <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7, duration: 0.9 }} className="pointer-events-auto text-center flex flex-col items-center gap-4 pb-8 md:pb-0">
                 <p className="text-sm md:text-lg text-white/70 italic max-w-sm leading-relaxed">
-                  "Wishing you a day as beautiful<br />and wonderful as you are, Sneha! 🌸"
+                  "Wishing you a day as beautiful<br />and wonderful as you are, Saniya! 🌸"
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center mt-2">
                   <motion.button onClick={() => launchCelebration()} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-primary/20 border border-primary/40 text-primary rounded-full text-xs md:text-sm font-medium tracking-wider hover:bg-primary/30 transition-all backdrop-blur-sm">
