@@ -1,7 +1,8 @@
 import { useRef, Suspense } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
+import { Text, useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import topImg from "@/assets/images/top.jpg";
 
 // Globally enable THREE.js texture cache
 THREE.Cache.enabled = true;
@@ -45,17 +46,33 @@ function Rosettes({ y, radius, count }: { y: number; radius: number; count: numb
   );
 }
 
-// ── Decorative frosted top circle on cake ─────────────────────────────────────
-function CakePhoto() {
+// ── Top photo on cake ────────────────────────────────────────────────────────
+function CakePhotoInner() {
+  const texture = useTexture(topImg);
+  texture.colorSpace = THREE.SRGBColorSpace;
   return (
-    <mesh position={[0, 2.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[1.1, 32]} />
+    <mesh position={[0, 2.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <circleGeometry args={[1.08, 64]} />
       <meshStandardMaterial
-        color="#FFF0F8"
-        roughness={0.25}
+        map={texture}
+        roughness={0.3}
         metalness={0.05}
+        toneMapped={false}
       />
     </mesh>
+  );
+}
+
+function CakePhoto() {
+  return (
+    <Suspense fallback={
+      <mesh position={[0, 2.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[1.08, 32]} />
+        <meshStandardMaterial color="#FFF0F8" roughness={0.25} metalness={0.05} />
+      </mesh>
+    }>
+      <CakePhotoInner />
+    </Suspense>
   );
 }
 
