@@ -97,9 +97,9 @@ function useTypewriter(text: string, delay = 38, startDelay = 300) {
 
 // ── Floating hearts layer ─────────────────────────────────────────────────────
 const HEARTS = ["💛", "🌸", "✨", "💖", "🎂", "⭐"];
-function FloatingParticles() {
+function FloatingParticles({ count = 8 }: { count?: number }) {
   const particles = useRef(
-    Array.from({ length: 8 }, (_, i) => ({
+    Array.from({ length: count }, (_, i) => ({
       id: i,
       emoji: HEARTS[i % HEARTS.length],
       left: `${Math.random() * 95}%`,
@@ -120,6 +120,8 @@ function FloatingParticles() {
             fontSize: p.size,
             animation: `floatUp ${p.duration} ${p.delay} linear infinite`,
             opacity: 0,
+            willChange: 'transform, opacity',
+            transform: 'translateZ(0)',
           }}
         >
           {p.emoji}
@@ -131,11 +133,10 @@ function FloatingParticles() {
 
 // ── Single photo lying flat on the table ────────────────────────────────────
 function TablePhoto({
-  url, x, z, rotY, active,
+  url, x, z, rotY,
 }: {
-  url: string; x: number; z: number; rotY: number; active: boolean;
+  url: string; x: number; z: number; rotY: number;
 }) {
-  // Only start fetching when the scene is active — zero downloads on landing screen
   const texture = useAsyncTexture(url);
   // Per-photo animated opacity — fades in the moment THIS texture is ready,
   // independent of all other photos (progressive reveal).
@@ -144,8 +145,9 @@ function TablePhoto({
   const photoMatRef  = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame((_, delta) => {
-    // Target 1 only if scene is active AND this photo's texture has loaded
-    const target = active && texture ? 1 : 0;
+    // Fade in as soon as the texture is ready — no active gate needed
+    // (the landing screen overlay hides the 3D scene anyway)
+    const target = texture ? 1 : 0;
     // Smooth lerp so each photo fades in gently (~0.4 s)
     opacityRef.current = THREE.MathUtils.lerp(opacityRef.current, target, Math.min(delta * 4, 1));
     const o = opacityRef.current;
@@ -215,7 +217,7 @@ const BG_CARD_DATA = Array.from({ length: bgMediaFull.length }, (_, i) => ({
   rotVariance: (((i * 3 + 1) * 0.137) % 1 - 0.5) * 0.3,
 }));
 
-function BgCarousel({ active = false }) {
+function BgCarousel({ active = false, skipBob = false }) {
   const groupRef = useRef<THREE.Group>(null);
   const count = bgMediaFull.length;
   const R = 11;
@@ -250,6 +252,7 @@ function BgCarousel({ active = false }) {
             active={active}
             phase={phase}
             rotVariance={rotVariance}
+            skipBob={skipBob}
           />
         );
       })}
@@ -260,12 +263,13 @@ function BgCarousel({ active = false }) {
 // Reusable temp vector — allocated once, never recreated
 const _worldPos = new THREE.Vector3();
 
-function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
+function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance, skipBob = false }: {
   url: string; x: number; y: number; z: number;
   rotY: number; w: number; h: number;
   active: boolean;
   phase: number;
   rotVariance: number;
+  skipBob?: boolean;
 }) {
   // Only fetch when carousel becomes active
   const texture = useAsyncTexture(url);
@@ -275,10 +279,12 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   useFrame(({ clock, camera }) => {
     if (!matRef.current || !meshRef.current) return;
 
-    // Up/down bob + random tilt animation
-    const elapsed = clock.getElapsedTime();
-    meshRef.current.position.y = y + Math.sin(elapsed * 0.65 + phase) * 0.45;
-    meshRef.current.rotation.z = rotVariance + Math.sin(elapsed * 0.42 + phase * 1.3) * 0.07;
+    // Up/down bob + random tilt animation — skip on mobile to save GPU
+    if (!skipBob) {
+      const elapsed = clock.getElapsedTime();
+      meshRef.current.position.y = y + Math.sin(elapsed * 0.65 + phase) * 0.45;
+      meshRef.current.rotation.z = rotVariance + Math.sin(elapsed * 0.42 + phase * 1.3) * 0.07;
+    }
 
     if (!active) { matRef.current.opacity = 0; return; }
 
@@ -331,12 +337,13 @@ function BgCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
 // ── BgVideoCard for video files in carousel ──────────────────────────────────
 // Videos are created lazily (only after `active` turns true) to avoid loading
 // all video data on page start — keeping initial load fast and smooth.
-function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
+function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance, skipBob = false }: {
   url: string; x: number; y: number; z: number;
   rotY: number; w: number; h: number;
   active: boolean;
   phase: number;
   rotVariance: number;
+  skipBob?: boolean;
 }) {
   const [videoTexture, setVideoTexture] = useState<THREE.VideoTexture | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -377,10 +384,12 @@ function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   useFrame(({ clock, camera }) => {
     if (!matRef.current || !meshRef.current) return;
 
-    // Up/down bob + random tilt animation
-    const elapsed = clock.getElapsedTime();
-    meshRef.current.position.y = y + Math.sin(elapsed * 0.65 + phase) * 0.45;
-    meshRef.current.rotation.z = rotVariance + Math.sin(elapsed * 0.42 + phase * 1.3) * 0.07;
+    // Up/down bob + random tilt animation — skip on mobile to save GPU
+    if (!skipBob) {
+      const elapsed = clock.getElapsedTime();
+      meshRef.current.position.y = y + Math.sin(elapsed * 0.65 + phase) * 0.45;
+      meshRef.current.rotation.z = rotVariance + Math.sin(elapsed * 0.42 + phase * 1.3) * 0.07;
+    }
 
     if (!active) { matRef.current.opacity = 0; return; }
 
@@ -441,7 +450,7 @@ function BgVideoCard({ url, x, y, z, rotY, w, h, active, phase, rotVariance }: {
   );
 }
 
-function PhotoGallery({ active = false }) {
+function PhotoGallery() {
   const groupRef = useRef<THREE.Group>(null);
   // Rotate in sync with the Table (+0.004 / frame) so photos sit on the spinning table
   useFrame(() => {
@@ -459,7 +468,6 @@ function PhotoGallery({ active = false }) {
             x={Math.sin(rad) * p.r}
             z={Math.cos(rad) * p.r}
             rotY={(p.rotYDeg * Math.PI) / 180}
-            active={active}
           />
         );
       })}
@@ -468,19 +476,21 @@ function PhotoGallery({ active = false }) {
 }
 
 // ── Confetti burst sequence ───────────────────────────────────────────────────
-function launchCelebration() {
+function launchCelebration(mobile = false) {
   const colors = ["#DB3D68", "#D4AF37", "#ffffff", "#FF69B4", "#FFD700", "#FF85C2"];
-  confetti({ particleCount: 120, spread: 70, origin: { y: 0.65 }, colors });
+  confetti({ particleCount: mobile ? 60 : 120, spread: 70, origin: { y: 0.65 }, colors });
   setTimeout(() => {
-    confetti({ particleCount: 80, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors });
-    confetti({ particleCount: 80, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors });
+    confetti({ particleCount: mobile ? 40 : 80, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors });
+    confetti({ particleCount: mobile ? 40 : 80, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors });
   }, 400);
+  if (!mobile) {
+    setTimeout(() => {
+      confetti({ particleCount: 200, spread: 120, startVelocity: 30, origin: { y: 0.2 }, colors, gravity: 0.6 });
+    }, 900);
+  }
   setTimeout(() => {
-    confetti({ particleCount: 200, spread: 120, startVelocity: 30, origin: { y: 0.2 }, colors, gravity: 0.6 });
-  }, 900);
-  setTimeout(() => {
-    confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 }, shapes: ["circle"], colors: ["#DB3D68", "#FF69B4", "#FFB6C1"] });
-  }, 1400);
+    confetti({ particleCount: mobile ? 40 : 80, spread: 80, origin: { y: 0.5 }, shapes: ["circle"], colors: ["#DB3D68", "#FF69B4", "#FFB6C1"] });
+  }, mobile ? 500 : 1400);
 }
 
 // ── Step indicator dots ───────────────────────────────────────────────────────
@@ -544,7 +554,7 @@ export default function Home() {
 
   const handleBlowCandle = () => {
     setCandleLit(false);
-    launchCelebration();
+    launchCelebration(isMobile);
     setTimeout(() => setStep('message'), 2800);
   };
 
@@ -589,8 +599,8 @@ export default function Home() {
           42%      { transform: scale(1.05); }
           70%      { transform: scale(1); }
         }
-        .text-shimmer { animation: shimmer 3s ease-in-out infinite; }
-        .heartbeat    { animation: heartbeat 2.2s ease-in-out infinite; }
+        .text-shimmer { animation: shimmer 3s ease-in-out infinite; will-change: opacity; }
+        .heartbeat    { animation: heartbeat 2.2s ease-in-out infinite; will-change: transform; }
         
         /* Custom scrollbar for mobile message view if it overflows */
         .hide-scroll::-webkit-scrollbar { display: none; }
@@ -599,7 +609,7 @@ export default function Home() {
 
       <audio ref={audioRef} loop preload="auto" src={birthdaySong} />
 
-      {showParticles && <FloatingParticles />}
+      {showParticles && <FloatingParticles count={isMobile ? 3 : 8} />}
       <StepDots step={step} />
 
       <div className="fixed bottom-6 right-6 z-50 pointer-events-auto">
@@ -619,24 +629,24 @@ export default function Home() {
 
       <div className="absolute inset-0 z-[1]">
         <Canvas
-          shadows
+          shadows={!isMobile}
           camera={{ position: [0, 8, 13], fov: isMobile ? 50 : 40 }}
-          dpr={[1, 1.5]}
-          performance={{ min: 0.5 }}
+          dpr={isMobile ? [0.75, 1] : [1, 1.5]}
+          performance={{ min: isMobile ? 0.3 : 0.5 }}
           gl={{ antialias: false, powerPreference: 'high-performance' }}
         >
-          <Stars radius={60} depth={40} count={800} factor={3} saturation={0.5} fade speed={0.6} />
-          <ambientLight intensity={0.4} />
+          <Stars radius={60} depth={40} count={isMobile ? 300 : 800} factor={3} saturation={0.5} fade speed={0.6} />
+          <ambientLight intensity={isMobile ? 0.6 : 0.4} />
           <hemisphereLight color="#ffeedd" groundColor="#1a0010" intensity={0.5} />
-          <spotLight position={[6, 10, 8]} angle={0.2} penumbra={1} intensity={2.5} color="#ff8fa0" castShadow />
-          <spotLight position={[-8, 6, -4]} angle={0.3} penumbra={1} intensity={1.2} color="#7090ff" />
+          <spotLight position={[6, 10, 8]} angle={0.2} penumbra={1} intensity={2.5} color="#ff8fa0" castShadow={!isMobile} />
+          {!isMobile && <spotLight position={[-8, 6, -4]} angle={0.3} penumbra={1} intensity={1.2} color="#7090ff" />}
           <pointLight position={[0, -3, 5]} color="#D4AF37" intensity={1.5} distance={12} />
           {/* Cake + table render instantly — no Suspense blocking */}
-          <Table />
-          <PremiumCake candleLit={candleLit} />
-          {/* Always mounted so textures preload in background; active prop controls visibility */}
-          <PhotoGallery active={step !== 'landing'} />
-          <BgCarousel active={step !== 'landing'} />
+          <Table isMobile={isMobile} />
+          <PremiumCake candleLit={candleLit} isMobile={isMobile} />
+          {/* Always mounted so textures preload in background; photos reveal as soon as ready */}
+          <PhotoGallery />
+          <BgCarousel active={step !== 'landing'} skipBob={isMobile} />
           <OrbitControls
             enableZoom={false}
             enableDamping={true}
@@ -711,8 +721,8 @@ export default function Home() {
                 className="pointer-events-auto w-full max-w-[600px]"
                 style={{
                   background: "hsla(0, 0%, 100%, 0.10)",
-                  backdropFilter: "blur(8px)",
-                  WebkitBackdropFilter: "blur(8px)",
+                  backdropFilter: isMobile ? "blur(4px)" : "blur(8px)",
+                  WebkitBackdropFilter: isMobile ? "blur(4px)" : "blur(8px)",
                   border: "1px solid rgba(255,255,255,0.06)",
                   borderRadius: "1.6rem",
                   boxShadow: "none",
@@ -755,7 +765,7 @@ export default function Home() {
                   "Wishing you a day as beautiful<br />and wonderful as you are, Saniya! 🌸"
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center mt-2">
-                  <motion.button onClick={() => launchCelebration()} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-primary/20 border border-primary/40 text-primary rounded-full text-xs md:text-sm font-medium tracking-wider hover:bg-primary/30 transition-all backdrop-blur-sm">
+                  <motion.button onClick={() => launchCelebration(isMobile)} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-primary/20 border border-primary/40 text-primary rounded-full text-xs md:text-sm font-medium tracking-wider hover:bg-primary/30 transition-all backdrop-blur-sm">
                     <Sparkles size={15} /> CELEBRATE AGAIN
                   </motion.button>
                   <motion.button onClick={handleRestart} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-white/5 border border-white/20 text-white/60 rounded-full text-xs md:text-sm font-medium tracking-wider hover:bg-white/10 transition-all backdrop-blur-sm">
