@@ -620,7 +620,7 @@ export default function Home() {
       <div className="absolute inset-0 z-[1]">
         <Canvas
           shadows
-          camera={{ position: [0, 4, 13], fov: isMobile ? 50 : 40 }}
+          camera={{ position: [0, 8, 13], fov: isMobile ? 50 : 40 }}
           dpr={[1, 1.5]}
           performance={{ min: 0.5 }}
           gl={{ antialias: false, powerPreference: 'high-performance' }}
