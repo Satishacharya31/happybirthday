@@ -1,31 +1,10 @@
-import { useRef, useEffect, useState, Suspense } from "react";
+import { useRef, Suspense } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
-import cakeimg from "@/assets/images/image.png";
 
-// Preload cake image at module level so it's ready before Canvas mounts
+// Globally enable THREE.js texture cache
 THREE.Cache.enabled = true;
-let _cakeTexture: THREE.Texture | null = null;
-new THREE.TextureLoader().load(cakeimg as string, (tex) => {
-  tex.colorSpace = THREE.SRGBColorSpace;
-  _cakeTexture = tex;
-});
-
-// Non-blocking texture loader — checks module-level cache first (instant if preloaded)
-function useAsyncTexture(url: string): THREE.Texture | null {
-  const [texture, setTexture] = useState<THREE.Texture | null>(() =>
-    url === (cakeimg as string) ? _cakeTexture : null
-  );
-  useEffect(() => {
-    if (url === (cakeimg as string) && _cakeTexture) { setTexture(_cakeTexture); return; }
-    new THREE.TextureLoader().load(url, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      setTexture(tex);
-    });
-  }, [url]);
-  return texture;
-}
 
 // ── Flower petal decoration ────────────────────────────────────────────────────
 function Flower({ position, color = "#FF69B4", scale = 1 }: { position: [number, number, number]; color?: string; scale?: number; }) {
@@ -66,17 +45,15 @@ function Rosettes({ y, radius, count }: { y: number; radius: number; count: numb
   );
 }
 
-// ── Photo printed on cake top ──────────────────────────────────────────────────
+// ── Decorative frosted top circle on cake ─────────────────────────────────────
 function CakePhoto() {
-  const texture = useAsyncTexture(cakeimg as string);
   return (
     <mesh position={[0, 2.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <circleGeometry args={[1.1, 32]} />
       <meshStandardMaterial
-        map={texture}
-        roughness={0.3}
-        toneMapped={false}
-        color={texture ? "#ffffff" : "#FFB6C1"}
+        color="#FFF0F8"
+        roughness={0.25}
+        metalness={0.05}
       />
     </mesh>
   );
