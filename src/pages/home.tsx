@@ -4,7 +4,7 @@ import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, RotateCcw, Heart, Sparkles } from "lucide-react";
+import { Volume2, VolumeX, RotateCcw, Heart, Sparkles, ArrowUpRight, Orbit, WandSparkles } from "lucide-react";
 import { PremiumCake, Table } from "@/components/PremiumCake";
 import birthdaySong from "@/assets/birthday.mp3";
 
@@ -667,25 +667,33 @@ export default function Home() {
             <motion.div
               key="landing"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, scale: 1.08 }} transition={{ duration: 0.9 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-background/65 backdrop-blur-md pointer-events-auto text-center px-4"
+              className="absolute inset-0 flex items-center justify-center pointer-events-auto px-5 md:px-12"
             >
-              <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="flex flex-col items-center gap-6">
-                <motion.div animate={{ rotate: [0, -8, 8, -5, 5, 0], scale: [1, 1.05, 1] }} transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }} className="text-5xl md:text-7xl">
-                  👑
-                </motion.div>
-                <h1 className="text-4xl md:text-7xl font-serif text-shimmer text-primary leading-tight">
-                  A Very Special<br /><span className="text-[#D4AF37]">Birthday</span>
-                </h1>
-                <p className="text-muted-foreground tracking-[0.25em] uppercase text-xs md:text-sm">— for Samikshya  —</p>
-                <div className="flex flex-col items-center gap-3 mt-4">
+              <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4, duration: 0.8 }} className="relative w-full max-w-6xl grid md:grid-cols-[1fr_320px] gap-10 items-center">
+                <div className="text-left max-w-3xl">
+                  <div className="flex items-center gap-3 mb-7 text-[#D4AF37] text-[10px] tracking-[0.35em] uppercase font-bold"><span className="h-px w-10 bg-[#D4AF37]" /> Transmission 01 / 01</div>
+                  <motion.div animate={{ rotate: [0, -8, 8, -5, 5, 0], scale: [1, 1.05, 1] }} transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }} className="text-4xl md:text-6xl mb-4 origin-left">✦</motion.div>
+                  <h1 className="text-5xl md:text-8xl font-serif text-shimmer text-primary leading-[0.92]">The night<br /><span className="text-[#D4AF37] italic">is yours.</span></h1>
+                  <p className="mt-6 text-white/65 tracking-[0.22em] uppercase text-[10px] md:text-xs">A tiny universe assembled for Samikshya</p>
+                  <div className="flex flex-col items-start gap-3 mt-9">
                   <motion.button
                     onClick={handleEnter}
                     whileHover={{ scale: 1.05, boxShadow: "0 0 60px rgba(219,61,104,0.7)" }}
                     whileTap={{ scale: 0.97 }}
-                    className="px-10 py-4 md:px-14 md:py-5 bg-primary text-white rounded-full font-medium tracking-widest shadow-[0_0_30px_rgba(219,61,104,0.4)] transition-all text-sm md:text-base"
+                    className="group flex items-center gap-5 px-7 py-4 md:px-9 md:py-5 bg-primary text-white rounded-full font-medium tracking-[0.18em] shadow-[0_0_30px_rgba(219,61,104,0.4)] transition-all text-xs md:text-sm"
                   >
-                    ✦ OPEN YOUR GIFT ✦
+                    OPEN YOUR GIFT <ArrowUpRight size={17} className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                   </motion.button>
+                  <span className="text-white/35 text-[10px] tracking-wider ml-2">Best experienced with sound on</span>
+                  </div>
+                </div>
+                <div className="hidden md:block border-l border-white/15 pl-8 text-white/60">
+                  <div className="flex items-center gap-2 text-primary mb-8"><Orbit size={16} /><span className="text-[10px] tracking-[0.25em] uppercase">The birthday protocol</span></div>
+                  <div className="space-y-7 text-xs leading-relaxed">
+                    <div><span className="text-[#D4AF37] font-mono text-[10px]">01</span><p className="mt-2">Light the candle.<br />Make one impossible wish.</p></div>
+                    <div><span className="text-[#D4AF37] font-mono text-[10px]">02</span><p className="mt-2">Spin through a constellation<br />of your best moments.</p></div>
+                    <div><span className="text-[#D4AF37] font-mono text-[10px]">03</span><p className="mt-2">Receive a message<br />from very far away.</p></div>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -696,15 +704,16 @@ export default function Home() {
             <motion.div key="cake" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 flex flex-col items-center justify-end pb-12 md:pb-16 pointer-events-none">
               <div className="pointer-events-auto text-center flex flex-col items-center gap-4 md:gap-5 px-4">
                 <motion.h2 animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 2.5, repeat: Infinity }} className="text-xl md:text-4xl font-serif text-white" style={{ textShadow: "0 0 30px rgba(219,61,104,0.6)" }}>
-                  Make your wish, Samikshya ... 🕯️
+                  Make your wish, Samikshya <span className="text-[#D4AF37]">...</span> 🕯️
                 </motion.h2>
                 <motion.button
                   onClick={handleBlowCandle}
                   whileHover={{ scale: 1.06, boxShadow: "0 0 40px rgba(219,61,104,0.5)" }} whileTap={{ scale: 0.95 }}
                   className="px-8 py-3 md:px-12 md:py-4 border border-primary/60 text-primary rounded-full hover:bg-primary/15 backdrop-blur-sm transition-all font-medium tracking-widest text-xs md:text-sm"
                 >
-                  💨 BLOW THE CANDLE
+                  <WandSparkles size={15} /> BLOW THE CANDLE
                 </motion.button>
+                <p className="text-[10px] text-white/35 tracking-[0.2em] uppercase flex items-center gap-2"><Orbit size={12} /> drag to explore the room</p>
               </div>
             </motion.div>
           )}
@@ -762,8 +771,9 @@ export default function Home() {
 
               <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7, duration: 0.9 }} className="pointer-events-auto text-center flex flex-col items-center gap-4 pb-8 md:pb-0">
                 <p className="text-sm md:text-lg text-white/70 italic max-w-sm leading-relaxed">
-                  "Wishing you a day as beautiful<br />and wonderful as you are, Samikshya! 🌸"
+                  “Wishing you a day as beautiful<br />and wonderful as you are, Samikshya! 🌸”
                 </p>
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.25em] text-[#D4AF37]/70"><span className="h-px w-8 bg-[#D4AF37]/50" /> signal delivered <span className="h-px w-8 bg-[#D4AF37]/50" /></div>
                 <div className="flex flex-wrap gap-3 justify-center mt-2">
                   <motion.button onClick={() => launchCelebration(isMobile)} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-5 py-2.5 md:px-6 md:py-3 bg-primary/20 border border-primary/40 text-primary rounded-full text-xs md:text-sm font-medium tracking-wider hover:bg-primary/30 transition-all backdrop-blur-sm">
                     <Sparkles size={15} /> CELEBRATE AGAIN
