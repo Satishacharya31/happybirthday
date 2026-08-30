@@ -87,7 +87,7 @@ const cakeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 360" w
   <ellipse cx="120" cy="52" rx="2" ry="3" fill="white" opacity="0.9"/>
   <!-- text on cake -->
   <text x="120" y="158" text-anchor="middle" font-family="Georgia,serif" font-size="9.5" font-weight="700" fill="#DB3D68" letter-spacing="0.5">Happy Birthday</text>
-  <text x="120" y="172" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="900" fill="#D4AF37" letter-spacing="1.5">Saniya</text>
+  <text x="120" y="172" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="900" fill="#D4AF37" letter-spacing="1.5">Samikshya</text>
 </svg>`;
 
 const cakeDataUri = `data:image/svg+xml;base64,${Buffer.from(cakeSvg).toString('base64')}`;
@@ -159,7 +159,7 @@ const node = h('div', {
       backgroundClip: 'text',
       color: 'transparent',
       marginBottom: '28px',
-    }}, 'Saniya 🎂'),
+    }}, 'Samikshya 🎂'),
     // divider
     h('div', { style: {
       width: '80px', height: '2px', marginBottom: '24px',

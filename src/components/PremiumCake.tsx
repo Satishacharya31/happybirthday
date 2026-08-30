@@ -251,10 +251,10 @@ export function PremiumCake({ candleLit, isMobile = false }: { candleLit: boolea
             Happy Birthday
           </Text>
           <Text position={[0, 0.34, 2.01]} fontSize={0.31} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.1} outlineWidth={0.01} outlineColor="#5a3a00">
-            Saniya 
+            Samikshya 
           </Text>
           <Text position={[0, 1.63, 1.41]} fontSize={0.19} color="#D4AF37" anchorX="center" anchorY="middle" letterSpacing={0.06} outlineWidth={0.008} outlineColor="#5a3a00">
-            ✦ Saniya  ✦
+            ✦ Samikshya  ✦
           </Text>
         </Suspense>
       </group>
